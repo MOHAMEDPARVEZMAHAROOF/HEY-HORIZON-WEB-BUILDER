@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mirror Engine</title>
+    <meta
+      name="description"
+      content="Mirror Engine GitHub Pages launchpad for the server-hosted website capture platform."
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #06101c;
+        --panel: rgba(9, 20, 35, 0.82);
+        --text: #f4f7fb;
+        --muted: #9db5ca;
+        --accent: #71def7;
+        --line: rgba(162, 194, 219, 0.18);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Arial, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top, rgba(113, 222, 247, 0.18), transparent 32%),
+          linear-gradient(180deg, #08111d 0%, #06101c 50%, #04070d 100%);
+      }
+
+      main {
+        width: min(1100px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 32px 0 64px;
+      }
+
+      .hero {
+        min-height: calc(100svh - 96px);
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+        gap: 28px;
+        align-items: center;
+      }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--accent);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      h1 {
+        margin: 12px 0 16px;
+        font-size: clamp(3rem, 7vw, 5.8rem);
+        line-height: 0.95;
+      }
+
+      p,
+      li {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .panel,
+      .feature {
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: var(--panel);
+        backdrop-filter: blur(18px);
+      }
+
+      .panel {
+        padding: 24px;
+      }
+
+      .actions {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin-top: 26px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0 18px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--text);
+        text-decoration: none;
+      }
+
+      .button.primary {
+        border-color: transparent;
+        background: linear-gradient(135deg, var(--accent), #c6f6ff);
+        color: #04111f;
+        font-weight: 700;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 28px;
+      }
+
+      .feature {
+        padding: 20px;
+      }
+
+      code {
+        color: #d7f8ff;
+      }
+
+      @media (max-width: 960px) {
+        .hero,
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .hero {
+          min-height: auto;
+          padding-top: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Mirror Engine</p>
+          <h1>Website capture with guardrails, previews, and exportable outputs.</h1>
+          <p>
+            This GitHub Pages site is a public launchpad for Mirror Engine. The full product is a
+            server-hosted Next.js application with API routes, Playwright capture, and persistent
+            clone storage, so the complete runtime does not fit on GitHub Pages.
+          </p>
+          <div class="actions">
+            <a class="button primary" href="https://github.com/MOHAMEDPARVEZMAHAROOF/HEY-HORIZON-WEB-BUILDER">
+              Open Repository
+            </a>
+            <a class="button" href="https://github.com/MOHAMEDPARVEZMAHAROOF/HEY-HORIZON-WEB-BUILDER/blob/main/README.md">
+              Read Deployment Notes
+            </a>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="eyebrow">Deployment Fit</p>
+          <h2>Why Pages is only the static front door</h2>
+          <ul>
+            <li>GitHub Pages can serve the public landing content.</li>
+            <li>The full app still needs a real server for API routes and Playwright.</li>
+            <li>The long-term production target should be a container-hosted Next.js deploy.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="feature">
+          <h3>Capture</h3>
+          <p>Permission-confirmed website intake, safe URL checks, and clone manifests.</p>
+        </article>
+        <article class="feature">
+          <h3>Preview</h3>
+          <p>Replay routes, local asset serving, and screenshot fallback for fragile sites.</p>
+        </article>
+        <article class="feature">
+          <h3>Export</h3>
+          <p>Bundle manifests, cloned assets, and handoff-ready outputs for follow-on work.</p>
+        </article>
+      </section>
+
+      <section class="panel" style="margin-top: 28px;">
+        <p class="eyebrow">Expected Pages URL</p>
+        <p>
+          <code>https://mohamedparvezmaharoof.github.io/HEY-HORIZON-WEB-BUILDER/</code>
+        </p>
+        <p>
+          That URL will go live after GitHub Pages is enabled in the repository settings and
+          pointed at the <code>/docs</code> folder on the <code>main</code> branch.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
