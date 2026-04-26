@@ -1,0 +1,13 @@
+.next
+node_modules
+.turbo
+dist
+coverage
+*.log
+.DS_Store
+agent_files
+memory
+AGENTS.md
+apps/web/.generated
+apps/web/outputs
+apps/web/.env.local
