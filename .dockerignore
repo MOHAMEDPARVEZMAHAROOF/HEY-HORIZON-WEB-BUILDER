@@ -1,0 +1,10 @@
+.git
+.github
+node_modules
+apps/web/.next
+apps/web/.generated
+apps/web/outputs
+memory
+agent_files
+AGENTS.md
+docs
