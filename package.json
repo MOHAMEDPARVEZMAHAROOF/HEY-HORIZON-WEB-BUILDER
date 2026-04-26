@@ -1,0 +1,15 @@
+{
+  "name": "hey-horizon-web-builder",
+  "private": true,
+  "packageManager": "pnpm@10.10.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @heyhorizon/web",
+    "build": "npm run build --workspace @heyhorizon/web",
+    "lint": "npm run lint --workspace @heyhorizon/web",
+    "typecheck": "npm run typecheck --workspace @heyhorizon/web"
+  }
+}
