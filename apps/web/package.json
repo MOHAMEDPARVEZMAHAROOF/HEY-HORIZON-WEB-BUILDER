@@ -1,0 +1,27 @@
+{
+  "name": "@heyhorizon/web",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 5243",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@heyhorizon/config": "file:../../packages/config",
+    "@heyhorizon/contracts": "file:../../packages/contracts",
+    "@heyhorizon/security": "file:../../packages/security",
+    "@heyhorizon/utils": "file:../../packages/utils",
+    "next": "^16.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.2",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "typescript": "^5.8.3"
+  }
+}
