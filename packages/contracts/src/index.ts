@@ -21,6 +21,8 @@ export const captureManifestSchema = z.object({
   previewUrl: z.string(),
   exportUrl: z.string(),
   manifestUrl: z.string(),
+  screenshotUrl: z.string().nullable().optional(),
+  captureMethod: z.enum(["http-fetch", "playwright"]).optional(),
   createdAt: z.string(),
   stats: z.object({
     capturedAssets: z.number(),
