@@ -15,7 +15,7 @@ export async function GET(_request: Request, context: Context) {
 
     return new NextResponse(asset.buffer, {
       headers: {
-        "Content-Type": "application/octet-stream",
+        "Content-Type": asset.contentType,
         "Content-Disposition": `inline; filename="${asset.fileName}"`
       }
     });
