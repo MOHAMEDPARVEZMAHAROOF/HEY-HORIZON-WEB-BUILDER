@@ -9,6 +9,8 @@ type CaptureResponse = {
   previewUrl: string;
   exportUrl: string;
   manifestUrl: string;
+  screenshotUrl?: string | null;
+  captureMethod?: "http-fetch" | "playwright";
   stats: {
     capturedAssets: number;
     downloadedAssets: number;
@@ -139,6 +141,7 @@ export function WebglClonerWorkbench() {
               <h2>{manifest.cloneId}</h2>
               <p className="panel-copy">{manifest.sourceUrl}</p>
               <ul>
+                <li>Render: {manifest.captureMethod ?? "http-fetch"}</li>
                 <li>Assets: {manifest.stats.capturedAssets}</li>
                 <li>Downloaded: {manifest.stats.downloadedAssets}</li>
                 <li>Models: {manifest.stats.modelCount}</li>
@@ -155,6 +158,11 @@ export function WebglClonerWorkbench() {
                 <Link className="ghost-button" href={manifest.manifestUrl}>
                   Open Manifest
                 </Link>
+                {manifest.screenshotUrl ? (
+                  <Link className="ghost-button" href={manifest.screenshotUrl}>
+                    Screenshot
+                  </Link>
+                ) : null}
               </div>
               {manifest.limitations.length > 0 ? (
                 <>
