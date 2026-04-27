@@ -13,6 +13,9 @@ const rootDir = path.resolve(process.cwd(), ".generated", "webgl-clones");
 const maxHtmlBytes = 1_500_000;
 const maxAssetBytes = 5_000_000;
 const maxAssetCount = 24;
+const requestTimeoutMs = 15_000;
+const maxFetchAttempts = 2;
+const maxReportedLimitations = 12;
 
 function cloneDir(cloneId: string) {
   return path.join(rootDir, cloneId);
@@ -38,7 +41,7 @@ type CaptureContext = {
   cloneId: string;
   downloadedAssets: CapturedAsset[];
   replacements: Map<string, string>;
-  limitations: Set<string>;
+  limitations: string[];
   seenUrls: Set<string>;
 };
 
@@ -67,9 +70,9 @@ export async function captureAuthorizedWebglSite(input: CaptureRequest): Promise
   const html = await response.text();
   const discoveredAssets = extractAssetUrls(html, source).slice(0, maxAssetCount);
   const downloadedAssets: CapturedAsset[] = [];
-  const limitations = new Set<string>([
+  const limitations = [
     "Authenticated, encrypted, signed, or private runtime assets are intentionally excluded."
-  ]);
+  ];
   const replacements = new Map<string, string>();
   const context: CaptureContext = {
     assetDir,
@@ -84,7 +87,8 @@ export async function captureAuthorizedWebglSite(input: CaptureRequest): Promise
     try {
       await captureAsset(assetUrl, context);
     } catch (error) {
-      limitations.add(
+      addLimitation(
+        limitations,
         error instanceof Error
           ? `${new URL(assetUrl).pathname} skipped: ${error.message}`
           : `${new URL(assetUrl).pathname} skipped during capture.`
@@ -122,7 +126,7 @@ export async function captureAuthorizedWebglSite(input: CaptureRequest): Promise
       textureCount: countAssetsByType(downloadedAssets, ["image/"]),
       scriptCount: countAssetsByType(downloadedAssets, ["javascript", ".js", ".mjs"])
     },
-    limitations: Array.from(limitations)
+    limitations: finalizeLimitations(limitations)
   };
 
   const accuracyReport = {
@@ -262,7 +266,8 @@ async function captureAsset(assetUrl: string, context: CaptureContext) {
         const localUrl = await captureAsset(url.toString(), context);
         return localUrl ?? url.toString();
       } catch (error) {
-        context.limitations.add(
+        addLimitation(
+          context.limitations,
           error instanceof Error
             ? `${url.pathname} skipped from CSS: ${error.message}`
             : `${url.pathname} skipped from CSS.`
@@ -278,23 +283,53 @@ async function captureAsset(assetUrl: string, context: CaptureContext) {
 }
 
 async function fetchWithLimit(url: string, maxBytes: number) {
-  const response = await fetch(url, {
-    headers: {
-      "user-agent": "MirrorEngine/1.0 (+permission-based capture)"
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxFetchAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "user-agent": "MirrorEngine/1.0 (+permission-based capture)"
+        },
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        if (attempt < maxFetchAttempts && response.status >= 500) {
+          lastError = new Error(`Request failed with ${response.status}.`);
+          continue;
+        }
+
+        throw new Error(`Request failed with ${response.status}.`);
+      }
+
+      const contentLength = Number(response.headers.get("content-length") ?? "0");
+
+      if (contentLength > maxBytes) {
+        throw new Error(`Response exceeded ${maxBytes} byte limit.`);
+      }
+
+      return response;
+    } catch (error) {
+      lastError =
+        error instanceof Error
+          ? error.name === "AbortError"
+            ? new Error(`Request timed out after ${requestTimeoutMs}ms.`)
+            : error
+          : new Error("Request failed.");
+
+      if (attempt >= maxFetchAttempts) {
+        throw lastError;
+      }
+    } finally {
+      clearTimeout(timeout);
     }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Request failed with ${response.status}.`);
   }
 
-  const contentLength = Number(response.headers.get("content-length") ?? "0");
-
-  if (contentLength > maxBytes) {
-    throw new Error(`Response exceeded ${maxBytes} byte limit.`);
-  }
-
-  return response;
+  throw lastError ?? new Error("Request failed.");
 }
 
 async function createRenderSnapshot(input: {
@@ -302,7 +337,7 @@ async function createRenderSnapshot(input: {
   outputDir: string;
   sourceUrl: URL;
   html: string;
-  limitations: Set<string>;
+  limitations: string[];
 }): Promise<RenderSnapshot> {
   try {
     const loadPlaywright = new Function(
@@ -343,7 +378,8 @@ async function createRenderSnapshot(input: {
       await browser.close();
     }
   } catch (error) {
-    input.limitations.add(
+    addLimitation(
+      input.limitations,
       error instanceof Error
         ? `Playwright render unavailable: ${error.message}`
         : "Playwright render unavailable in this runtime."
@@ -360,24 +396,22 @@ function extractAssetUrls(html: string, baseUrl: URL) {
   const assetUrls = new Set<string>();
   const attributePattern =
     /<(?:script|img|source|video|audio|link|model-viewer)\b[^>]*?\b(?:src|href|poster)=["']([^"'#?][^"']*|https?:\/\/[^"']+)["'][^>]*>/gi;
+  const srcSetPattern = /\bsrcset=["']([^"']+)["']/gi;
+  const inlineStylePattern = /\bstyle=["'][^"']*url\(([^)]+)\)[^"']*["']/gi;
   let match: RegExpExecArray | null = null;
 
   while ((match = attributePattern.exec(html)) !== null) {
-    const candidate = match[1]?.trim();
+    addAssetCandidate(assetUrls, match[1], baseUrl);
+  }
 
-    if (!candidate) {
-      continue;
+  while ((match = srcSetPattern.exec(html)) !== null) {
+    for (const candidate of match[1].split(",")) {
+      addAssetCandidate(assetUrls, candidate.trim().split(/\s+/)[0], baseUrl);
     }
+  }
 
-    try {
-      const resolved = new URL(candidate, baseUrl);
-
-      if (["http:", "https:"].includes(resolved.protocol)) {
-        assetUrls.add(resolved.toString());
-      }
-    } catch {
-      // Ignore malformed URLs found in source markup.
-    }
+  while ((match = inlineStylePattern.exec(html)) !== null) {
+    addAssetCandidate(assetUrls, match[1]?.replace(/^['"]|['"]$/g, ""), baseUrl);
   }
 
   return Array.from(assetUrls);
@@ -474,6 +508,45 @@ function createAssetPath(sourceUrl: URL, contentType: string) {
   const queryHash = sourceUrl.search ? createHash("sha1").update(sourceUrl.search).digest("hex").slice(0, 8) : "";
   const suffix = queryHash ? `-${queryHash}` : "";
   return `${baseName}${suffix}${ext}`;
+}
+
+function addAssetCandidate(assetUrls: Set<string>, candidate: string | undefined, baseUrl: URL) {
+  const normalized = candidate?.trim();
+
+  if (
+    !normalized ||
+    normalized.startsWith("data:") ||
+    normalized.startsWith("blob:") ||
+    normalized.startsWith("javascript:")
+  ) {
+    return;
+  }
+
+  try {
+    const resolved = new URL(normalized, baseUrl);
+
+    if (["http:", "https:"].includes(resolved.protocol)) {
+      assetUrls.add(resolved.toString());
+    }
+  } catch {
+    // Ignore malformed URLs found in source markup.
+  }
+}
+
+function addLimitation(limitations: string[], message: string) {
+  if (!limitations.includes(message)) {
+    limitations.push(message);
+  }
+}
+
+function finalizeLimitations(limitations: string[]) {
+  if (limitations.length <= maxReportedLimitations) {
+    return limitations;
+  }
+
+  const visible = limitations.slice(0, maxReportedLimitations - 1);
+  visible.push(`${limitations.length - visible.length} additional capture notes were omitted for brevity.`);
+  return visible;
 }
 
 function inferExtension(contentType: string) {
