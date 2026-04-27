@@ -11,6 +11,7 @@ type CaptureResponse = {
   manifestUrl: string;
   stats: {
     capturedAssets: number;
+    downloadedAssets: number;
     modelCount: number;
     textureCount: number;
     scriptCount: number;
@@ -115,8 +116,8 @@ export function WebglClonerWorkbench() {
             Capture Website
           </button>
           <p className="field-note">
-            This scaffold currently returns a deterministic manifest so the full user flow can be
-            built and tested before deeper Playwright logic lands.
+            Mirror Engine now fetches the source page, saves reachable assets locally, rewrites the
+            preview to local routes, and prepares an export package for inspection.
           </p>
         </form>
 
@@ -125,9 +126,9 @@ export function WebglClonerWorkbench() {
           <h2>What this build already wires</h2>
           <ul>
             <li>Permission-gated capture request</li>
-            <li>Manifest-shaped API response</li>
-            <li>Run preview endpoint and asset route surface</li>
-            <li>Export endpoint and content draft endpoint</li>
+            <li>Reachable HTML and asset mirroring</li>
+            <li>Locally rewritten preview route</li>
+            <li>Downloadable ZIP export and accuracy report</li>
           </ul>
         </section>
 
@@ -139,6 +140,7 @@ export function WebglClonerWorkbench() {
               <p className="panel-copy">{manifest.sourceUrl}</p>
               <ul>
                 <li>Assets: {manifest.stats.capturedAssets}</li>
+                <li>Downloaded: {manifest.stats.downloadedAssets}</li>
                 <li>Models: {manifest.stats.modelCount}</li>
                 <li>Textures: {manifest.stats.textureCount}</li>
                 <li>Scripts: {manifest.stats.scriptCount}</li>
@@ -150,7 +152,20 @@ export function WebglClonerWorkbench() {
                 <Link className="ghost-button" href={manifest.exportUrl}>
                   Export
                 </Link>
+                <Link className="ghost-button" href={manifest.manifestUrl}>
+                  Open Manifest
+                </Link>
               </div>
+              {manifest.limitations.length > 0 ? (
+                <>
+                  <h3>Capture Notes</h3>
+                  <ul>
+                    {manifest.limitations.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
             </>
           ) : (
             <>
