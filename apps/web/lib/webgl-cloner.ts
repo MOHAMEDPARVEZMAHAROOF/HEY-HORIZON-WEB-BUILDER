@@ -42,6 +42,13 @@ type CaptureContext = {
   seenUrls: Set<string>;
 };
 
+type RenderSnapshot = {
+  captureMethod: "http-fetch" | "playwright";
+  renderedHtml: string;
+  screenshotPath?: string;
+  title?: string;
+};
+
 export async function captureAuthorizedWebglSite(input: CaptureRequest): Promise<CaptureManifest> {
   if (!input.confirmedPermission) {
     throw new Error("Permission confirmation is required.");
@@ -85,8 +92,15 @@ export async function captureAuthorizedWebglSite(input: CaptureRequest): Promise
     }
   }
 
-  const title = extractTitle(html) ?? `${source.hostname} capture`;
-  const renderedHtml = rewriteHtmlForPreview(html, source, replacements);
+  const mirroredHtml = rewriteHtmlForPreview(html, source, replacements);
+  const renderSnapshot = await createRenderSnapshot({
+    cloneId,
+    outputDir,
+    sourceUrl: source,
+    html: mirroredHtml,
+    limitations
+  });
+  const title = renderSnapshot.title ?? extractTitle(html) ?? `${source.hostname} capture`;
 
   const manifest: CaptureManifest = {
     cloneId,
@@ -96,6 +110,10 @@ export async function captureAuthorizedWebglSite(input: CaptureRequest): Promise
     previewUrl: `/api/webgl-cloner/run/${cloneId}`,
     exportUrl: `/api/webgl-cloner/export?cloneId=${cloneId}`,
     manifestUrl: cloneAssetRoute(cloneId, "manifest.json"),
+    screenshotUrl: renderSnapshot.screenshotPath
+      ? cloneAssetRoute(cloneId, renderSnapshot.screenshotPath)
+      : null,
+    captureMethod: renderSnapshot.captureMethod,
     createdAt: new Date().toISOString(),
     stats: {
       capturedAssets: discoveredAssets.length,
@@ -111,6 +129,7 @@ export async function captureAuthorizedWebglSite(input: CaptureRequest): Promise
     cloneId,
     sourceUrl: input.url,
     capturedAt: manifest.createdAt,
+    captureMethod: renderSnapshot.captureMethod,
     htmlBytes: Buffer.byteLength(html, "utf8"),
     downloadedAssets: downloadedAssets.map((asset) => ({
       sourceUrl: asset.sourceUrl,
@@ -128,7 +147,8 @@ export async function captureAuthorizedWebglSite(input: CaptureRequest): Promise
     "utf8"
   );
   await writeFile(path.join(outputDir, "source.html"), html, "utf8");
-  await writeFile(path.join(outputDir, "rendered.html"), renderedHtml, "utf8");
+  await writeFile(path.join(outputDir, "initial.html"), mirroredHtml, "utf8");
+  await writeFile(path.join(outputDir, "rendered.html"), renderSnapshot.renderedHtml, "utf8");
 
   return manifest;
 }
@@ -275,6 +295,65 @@ async function fetchWithLimit(url: string, maxBytes: number) {
   }
 
   return response;
+}
+
+async function createRenderSnapshot(input: {
+  cloneId: string;
+  outputDir: string;
+  sourceUrl: URL;
+  html: string;
+  limitations: Set<string>;
+}): Promise<RenderSnapshot> {
+  try {
+    const loadPlaywright = new Function(
+      "specifier",
+      "return import(specifier);"
+    ) as (specifier: string) => Promise<{ chromium: { launch: (options: { headless: boolean }) => Promise<any> } }>;
+    const playwright = await loadPlaywright("playwright");
+    const browser = await playwright.chromium.launch({
+      headless: true
+    });
+
+    try {
+      const page = await browser.newPage({
+        viewport: {
+          width: 1440,
+          height: 900
+        }
+      });
+
+      await page.setContent(input.html, {
+        waitUntil: "domcontentloaded"
+      });
+      await page.waitForTimeout(1200);
+
+      const screenshotPath = path.join(input.outputDir, "screenshot.png");
+      await page.screenshot({
+        path: screenshotPath,
+        fullPage: true
+      });
+
+      return {
+        captureMethod: "playwright",
+        renderedHtml: await page.content(),
+        screenshotPath: "screenshot.png",
+        title: await page.title()
+      };
+    } finally {
+      await browser.close();
+    }
+  } catch (error) {
+    input.limitations.add(
+      error instanceof Error
+        ? `Playwright render unavailable: ${error.message}`
+        : "Playwright render unavailable in this runtime."
+    );
+
+    return {
+      captureMethod: "http-fetch",
+      renderedHtml: input.html
+    };
+  }
 }
 
 function extractAssetUrls(html: string, baseUrl: URL) {
